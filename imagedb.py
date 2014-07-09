@@ -195,6 +195,20 @@ def addTag(tag, hidden=False):
         raise Exists()
     return images.save({'type': 'tag', 'name': tag, 'hidden': hidden, 'images': []})[0]
 
+def removeTag(tag):
+    '''
+    Removes a tag.
+    '''
+    tags = listTags()
+    if not tag in tags:
+        raise NoDocument()
+    tag = tags[tag]
+    doc = images[tag]
+    for image in tag['images']:
+        i = images[image]
+        i['tags'].remove(tag)
+        print i
+
 def listTags(reverse=False):
     '''
     Returns a list of tags in name indexed order.
