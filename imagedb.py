@@ -242,10 +242,19 @@ def removeFromTag(image, tag):
     Removes an image from a given tag.
     Tag is in name or id form.
     '''
+    # Check if image exists.
     if not image in images:
         raise NoDocument()
 
-    
+    # Translate tag to an id.
+    if not tag in images:
+        tag = getTag(tag)
+
+    image = images[image]
+    tag = images[tag]
+    image['tags'].remove(tag['_id'])
+    tag['images'].remove(tag['_id'])
+    images.update([image, tag])
 
 def getTag(tag, id=False):
     '''
@@ -253,8 +262,13 @@ def getTag(tag, id=False):
     If id is True, translates a tag id to a tag name.
     '''
     if not id:
-        return listTags(tag=tag).rows[0].id
+        v = listTags(tag=tag).rows
+        if len(v) == 0:
+            raise NoDocument()
+        return v[0].id
     else:
+        if not tag in images:
+            raise NoDocument()
         return listTags(tag=tag, reverse=True).rows[0].id
 
 def listTags(reverse=False, tag=None):
