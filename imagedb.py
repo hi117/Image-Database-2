@@ -99,12 +99,9 @@ def addImage(image, tags=[], links=[]):
         raise NoTags()
 
     # Translate the tags into ids
-    sTags = listTags()
     doc['tags'] = []
     for i in tags:
-        if not i in sTags:
-            sTags[i] = addTag(i)
-        doc['tags'].append(sTags[i])
+        doc['tags'].append(getTag(i))
 
     # Generate the PIL image
     f = tempfile.NamedTemporaryFile()
@@ -157,12 +154,8 @@ def addImage(image, tags=[], links=[]):
         doc['exif'].pop(i)
     doc['mime'] = subprocess.check_output(['file', '--mime-type', f.name]).split(' ')[1][:-1]
     id = images.save(doc)[0]
-    tags = []
     for i in doc['tags']:
-        t = images[i]
-        t['images'].append(id)
-        tags.append(t)
-    images.update(tags)
+        addToTag(id, i)
     thumb = thumb.getvalue()
     images.put_attachment(images[id], thumb, filename = 'thumbnail.jpg', content_type = 'image/jpeg')
     images.put_attachment(images[id], image, filename='image', content_type=doc['mime'])
