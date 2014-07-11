@@ -172,18 +172,16 @@ def removeImage(id):
     '''
     Removes an image from the database.
     '''
+    # Check if id exists and is an image.
     if not id in images:
         raise NoDocument()
     doc = images[id]
     if not 'type' in doc or doc['type'] != 'image':
         raise InvallidType()
-    
-    docs = []
+
+    # Remove the image from all tags.
     for i in doc['tags']:
-        t = images[i]
-        t['images'].remove(id)
-        docs.append(t)
-    images.update(docs)
+        removeFromTag(id, i)
     images.delete(doc)
 
 def addTag(tag, hidden=False):
@@ -262,14 +260,11 @@ def getTag(tag, id=False):
     If id is True, translates a tag id to a tag name.
     '''
     if not id:
-        v = listTags(tag=tag).rows
-        if len(v) == 0:
-            raise NoDocument()
-        return v[0].id
+        return listTags(tag)[tag]
     else:
         if not tag in images:
             raise NoDocument()
-        return listTags(tag=tag, reverse=True).rows[0].id
+        return listTags(tag=tag, reverse=True)[tag]
 
 def listTags(reverse=False, tag=None):
     '''
@@ -280,6 +275,10 @@ def listTags(reverse=False, tag=None):
         v = images.view('imagedb/tags', key=tag)
     else:
         v = images.view('imagedb/tags')
+
+    if len(v) == 0:
+        raise NoDocument()
+
     if not reverse:
         for i in v:
             o[i.key] = i.id
