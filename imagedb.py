@@ -11,7 +11,7 @@ import hashlib
 import zlib
 
 couch = couchdb.Server('http://127.0.0.1:5984')
-images = couch['imagedbnew']
+images = couch['imagedbtest']
 
 thumbSize = (128, 128)
 
@@ -91,17 +91,12 @@ def addImage(image, tags=[], links=[]):
     '''
     Adds an image.
     '''
-    doc = {'type': 'image'}
+    doc = {'type': 'image', 'tags': []}
     # An image must have tags, either generated from links or provided
     if len(links) == 0:
         tags, doc['links'] = genTagsFromLinks(tags, links)
     if len(tags) == 0:
         raise NoTags()
-
-    # Translate the tags into ids
-    doc['tags'] = []
-    for i in tags:
-        doc['tags'].append(getTag(i))
 
     # Generate the PIL image
     f = tempfile.NamedTemporaryFile()
@@ -154,7 +149,7 @@ def addImage(image, tags=[], links=[]):
         doc['exif'].pop(i)
     doc['mime'] = subprocess.check_output(['file', '--mime-type', f.name]).split(' ')[1][:-1]
     id = images.save(doc)[0]
-    for i in doc['tags']:
+    for i in tags:
         addToTag(id, i)
     thumb = thumb.getvalue()
     images.put_attachment(images[id], thumb, filename = 'thumbnail.jpg', content_type = 'image/jpeg')
@@ -217,14 +212,13 @@ def addToTag(image, tag):
         raise NoDocument()
 
     # Check if the tag exists and if it doesnt, create it
-    try:
-        id = images[getTag(tag)]
-    except NoDocument as e:
-        id = images[addTag(tag)]
+    if tag in images:
+        tag = images[tag]
+    else:
+        tag = images[getTag(tag)]
 
     imaged = images[image]
-    imaged['tags'].append(tag)
-    tag = images[id]
+    imaged['tags'].append(tag['_id'])
     tag['images'].append(image)
     images.update([tag, imaged])
 
@@ -255,7 +249,10 @@ def getTag(tag, id=False):
     If id is True, translates a tag id to a tag name.
     '''
     if not id:
-        return listTags(tag)[tag]
+        try:
+            return listTags(tag=tag)[tag]
+        except NoDocument as e:
+            return addTag(tag)
     else:
         if not tag in images:
             raise NoDocument()
@@ -268,11 +265,11 @@ def listTags(reverse=False, tag=None):
     o = {}
     if tag:
         v = images.view('imagedb/tags', key=tag)
+
+        if len(v) == 0:
+            raise NoDocument()
     else:
         v = images.view('imagedb/tags')
-
-    if len(v) == 0:
-        raise NoDocument()
 
     if not reverse:
         for i in v:

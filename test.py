@@ -1,5 +1,4 @@
 import imagedb
-import couchdb
 
 testImages = {
     '/home/hi117/Pictures/wallpaper-2471485.png': ['test', 'Chuuni'],
@@ -7,5 +6,6 @@ testImages = {
     }
 
 for i in testImages:
-    print addImage(i, testImages[i])
+    print i
+    print imagedb.addImage(open(i).read(), testImages[i])
 
