@@ -252,6 +252,8 @@ def removeFromTag(image, tag):
     tag = images[tag]
     image['tags'].remove(tag['_id'])
     tag['images'].remove(tag['_id'])
+    if len(image['tags']) == 0:
+        addToTag(image['_id'], 'needs tag')
     images.update([image, tag])
 
 def getTag(tag, id=False):
