@@ -166,7 +166,7 @@ def addImage(image, tags=[], links=[]):
     thumb = thumb.getvalue()
     images.put_attachment(images[id], thumb, filename = 'thumbnail.jpg', content_type = 'image/jpeg')
     images.put_attachment(images[id], image, filename='image', content_type=doc['mime'])
-    return score
+    return id, score
 
 def removeImage(id):
     '''
@@ -191,7 +191,7 @@ def addTag(tag, hidden=False):
     Adds a tag, optionally hidden.
     Returns the created id.
     '''
-    if tag in tags():
+    if tag in listTags():
         raise Exists()
     return images.save({'type': 'tag', 'name': tag, 'hidden': hidden, 'images': []})[0]
 
@@ -199,25 +199,77 @@ def removeTag(tag):
     '''
     Removes a tag.
     '''
+    # Check if tag actually exists.
     tags = listTags()
     if not tag in tags:
         raise NoDocument()
+
+    # Loop over all images in the tag, removing the tag from the images.
     tag = tags[tag]
     doc = images[tag]
+    docs = [doc]
     for image in tag['images']:
         i = images[image]
         i['tags'].remove(tag)
-        print i
+        docs.append(i)
 
-def listTags(reverse=False):
+    # Save the result.
+    images.update(docs)
+
+def addToTag(image, tag):
+    '''
+    Adds an image to a given tag.
+    Tag is in name or id form.
+    '''
+    # Check if the image exists.
+    if not image in images:
+        raise NoDocument()
+
+    # Check if the tag exists and if it doesnt, create it
+    try:
+        id = images[getTag(tag)]
+    except NoDocument as e:
+        id = images[addTag(tag)]
+
+    imaged = images[image]
+    imaged['tags'].append(tag)
+    tag = images[id]
+    tag['images'].append(image)
+    images.update([tag, imaged])
+
+def removeFromTag(image, tag):
+    '''
+    Removes an image from a given tag.
+    Tag is in name or id form.
+    '''
+    if not image in images:
+        raise NoDocument()
+
+    
+
+def getTag(tag, id=False):
+    '''
+    if id is False, translates a tag name to a tag id.
+    If id is True, translates a tag id to a tag name.
+    '''
+    if not id:
+        return listTags(tag=tag).rows[0].id
+    else:
+        return listTags(tag=tag, reverse=True).rows[0].id
+
+def listTags(reverse=False, tag=None):
     '''
     Returns a list of tags in name indexed order.
     '''
     o = {}
+    if tag:
+        v = images.view('imagedb/tags', key=tag)
+    else:
+        v = images.view('imagedb/tags')
     if not reverse:
-        for i in images.view('imagedb/tags'):
+        for i in v:
             o[i.key] = i.id
     else:
-        for i in images.view('imagedb/tags'):
+        for i in v:
             o[i.id] = i.key
     return o
