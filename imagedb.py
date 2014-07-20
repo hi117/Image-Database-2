@@ -1,3 +1,6 @@
+from PIL import Image
+from StringIO import StringIO
+import imagehash
 import json
 import subprocess
 import re
@@ -6,7 +9,8 @@ import tempfile
 import hashlib
 import zlib
 import config
-import phash
+
+images = config.images
 
 class NoTags(Exception):
     pass
@@ -23,29 +27,19 @@ class InvallidType(Exception):
 def genTagsFromLinks(tags, links):
     return tags, links
 
-def checkCollision(type, hash, length=0):
-    if type in cryptoHashes:
-        v = images.view('hashes/' + type, key=hash)
-        if v.total_rows > 0:
-            for i in v:
-                if i.value == length:
-                    return scores[type]
-    else:
-        v = images.view('hashes/' + type, key=hash[1])
-        if v.total_rows > 0:
-            for i in v:
-                if hashToImagehash(i.value) - hashToImagehash(hash[0]) <= 3:
-                    return scores[type] * (5 - (hashToImagehash(i.value) - hashToImagehash(hash[0])))
-    return 0
-
-def hashToImagehash(h):
-    a = []
-    for i in re.findall('..', h):
-        b = []
-        for j in range(8):
-            b.append(bool(int('0x' + i, 16) & 2**j))
-        a.append(b)
-    return imagehash.ImageHash(numpy.array(a, dtype=bool))
+def checkCollision(hashes):
+    out = {}
+    for i in hashes:
+        v = images.view('hashes/' + i, key=hashes[i])
+        for j in v:
+            if not j.id in out:
+                out[j.id] = 0
+            out[j.id] += 1
+    rout = []
+    for i in out:
+        if out[i] == len(hashes):
+            rout.append(i)
+    return rout
 
 def imageHashToInt(h):
     n = 0
@@ -54,6 +48,22 @@ def imageHashToInt(h):
         if i:
             n+=1
     return n
+
+def distance(a, b, bits=32):
+    x = (a ^ b) & ((1 << bits) - 1)
+    tot = 0
+    while x:
+        tot += x & 1
+        x >>= 1
+    return tot
+
+def checkPhash(hash):
+    out = []
+    hash = int(hash)
+    for i in images.view('hashes/phash'):
+        if distance(hash, int(i.key), 64) <= 3:
+            out.append(i.id)
+    return out
 
 def addImage(image, tags=[], links=[]):
     '''
@@ -74,46 +84,29 @@ def addImage(image, tags=[], links=[]):
     im = Image.open(f)
 
     # Calculate the hashes
-    # NOTE: for perceptiual hashes that are used in hamming distance 
-    # calculations, a second hash, the count of true bits, is stored to make
-    # lookups faster, this is useless for cryptographic ones though
-    score = 0
     hashes = {}
     hashes['length'] = len(image)
-    hashes['crc32'] = hex(zlib.crc32(image) & 0xffffffff)[2:]
-    score += checkCollision('crc32', hashes['crc32'], hashes['length'])
-    hashes['md5'] = hashlib.md5(image).hexdigest()
-    score += checkCollision('md5', hashes['md5'], hashes['length'])
-    hashes['sha1'] = hashlib.sha1(image).hexdigest()
-    score += checkCollision('sha1', hashes['sha1'], hashes['length'])
-    hashes['sha256'] = hashlib.sha256(image).hexdigest()
-    score += checkCollision('sha256', hashes['sha256'], hashes['length'])
-    hashes['sha512'] = hashlib.sha512(image).hexdigest()
-    score += checkCollision('sha512', hashes['sha512'], hashes['length'])
 
-    phash = imagehash.phash(im)
-    phashH = phash.hash.sum()
-    hashes['phash'] = [str(phash), phashH]
-    score += checkCollision('phash', hashes['phash'])
-    ahash = imagehash.average_hash(im)
-    ahashH = ahash.hash.sum()
-    hashes['ahash'] = [str(ahash), ahashH]
-    score += checkCollision('ahash', hashes['ahash'])
-    dhash = imagehash.dhash(im)
-    dhashH = dhash.hash.sum()
-    hashes['dhash'] = [str(dhash), dhashH]
-    score += checkCollision('dhash', hashes['dhash'])
+    hashes['crc32'] = hex(zlib.crc32(image) & 0xffffffff)[2:]
+    hashes['md5'] = hashlib.md5(image).hexdigest()
+    hashes['sha1'] = hashlib.sha1(image).hexdigest()
+    hashes['sha256'] = hashlib.sha256(image).hexdigest()
+    hashes['sha512'] = hashlib.sha512(image).hexdigest()
+    collisions = checkCollision(hashes)
+    
+    hashes['phash'] = str(imageHashToInt(imagehash.phash(im)))
+    pcollisions = checkPhash(hashes['phash'])
     
     doc['hashes'] = hashes
 
     # Generate a thumbnail
-    im.thumbnail(thumbSize)
+    im.thumbnail(config.thumbsize)
     thumb = StringIO()
     im.convert('RGB').save(thumb, "JPEG")
 
     # Get exif and mime
     doc['exif'] = json.loads(subprocess.check_output(['exiftool', '-j', f.name]))[0]
-    for i in exifIgnore:
+    for i in config.exifIgnore:
         doc['exif'].pop(i)
     doc['mime'] = subprocess.check_output(['file', '--mime-type', f.name]).split(' ')[1][:-1]
     id = images.save(doc)[0]
@@ -122,7 +115,7 @@ def addImage(image, tags=[], links=[]):
     thumb = thumb.getvalue()
     images.put_attachment(images[id], thumb, filename = 'thumbnail.jpg', content_type = 'image/jpeg')
     images.put_attachment(images[id], image, filename='image', content_type=doc['mime'])
-    return id, score
+    return id, collisions, pcollisions
 
 def removeImage(id):
     '''
