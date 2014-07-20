@@ -131,7 +131,7 @@ def removeImage(id):
     # Remove the image from all tags.
     for i in doc['tags']:
         removeFromTag(id, i)
-    images.delete(doc)
+    images.delete(images[doc.id])
 
 def addTag(tag, hidden=False):
     '''
@@ -155,13 +155,14 @@ def removeTag(tag):
     tag = tags[tag]
     doc = images[tag]
     docs = [doc]
-    for image in tag['images']:
+    for image in images[tag]['images']:
         i = images[image]
         i['tags'].remove(tag)
         docs.append(i)
 
     # Save the result.
     images.update(docs)
+    images.delete(images[tag])
 
 def addToTag(image, tag):
     '''
@@ -199,9 +200,7 @@ def removeFromTag(image, tag):
     image = images[image]
     tag = images[tag]
     image['tags'].remove(tag['_id'])
-    tag['images'].remove(tag['_id'])
-    if len(image['tags']) == 0:
-        addToTag(image['_id'], 'needs tag')
+    tag['images'].remove(image['_id'])
     images.update([image, tag])
 
 def getTag(tag, id=False):
