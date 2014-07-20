@@ -1,7 +1,3 @@
-from PIL import Image
-from StringIO import StringIO
-import imagehash
-import couchdb
 import json
 import subprocess
 import re
@@ -9,44 +5,8 @@ import numpy
 import tempfile
 import hashlib
 import zlib
-
-couch = couchdb.Server('http://127.0.0.1:5984')
-images = couch['imagedbtest']
-
-thumbSize = (128, 128)
-
-exifIgnore = [
-        "SourceFile",
-        "ExifToolVersion",
-        "FileName",
-        "Directory",
-        "FileSize",
-        "FileModifyDate",
-        "FileAccessDate",
-        "FileInodeChangeDate",
-        "FilePermissions",
-        "FileType",
-        "MIMEType",
-        ]
-
-cryptoHashes = [
-        "crc32",
-        "md5",
-        "sha1",
-        "sha256",
-        "sha512",
-        ]
-
-scores = {
-        'crc32': 50,
-        'md5': 100,
-        'sha1': 150,
-        'sha256': 200,
-        'sha512': 250,
-        'phash': 20,
-        'dhash': 10,
-        'ahash': 5,
-        }
+import config
+import phash
 
 class NoTags(Exception):
     pass
@@ -86,6 +46,14 @@ def hashToImagehash(h):
             b.append(bool(int('0x' + i, 16) & 2**j))
         a.append(b)
     return imagehash.ImageHash(numpy.array(a, dtype=bool))
+
+def imageHashToInt(h):
+    n = 0
+    for i in h.hash.flatten():
+        n = n*2
+        if i:
+            n+=1
+    return n
 
 def addImage(image, tags=[], links=[]):
     '''

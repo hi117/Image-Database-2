@@ -1,0 +1,5 @@
+docs hold n entries
+index document tracks inserts into the indivudial entries
+{start: id, start: id, start: id}
+single entries have the form:
+{'hash': current_hash, 'links': [hash, hash, hash, ...], 'images': [image, image, ...]}
