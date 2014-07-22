@@ -113,7 +113,7 @@ def addImage(image, tags=[], links=[]):
     for i in tags:
         addToTag(id, i)
     thumb = thumb.getvalue()
-    images.put_attachment(images[id], thumb, filename = 'thumbnail.jpg', content_type = 'image/jpeg')
+    images.put_attachment(images[id], thumb, filename = 'thumbnail.jpg', content_type =  config.thumbMime)
     images.put_attachment(images[id], image, filename='image', content_type=doc['mime'])
     return id, collisions, pcollisions
 
@@ -238,3 +238,25 @@ def listTags(reverse=False, tag=None):
         for i in v:
             o[i.id] = i.key
     return o
+
+def getImage(image, type='doc'):
+    '''
+    Returns an image defined by id.
+    if type is doc, returns the document.
+    if type is thumb, returns the thumbnail.
+    if type is image, returns the image.
+    '''
+    if not image in images:
+        raise NoDocument()
+
+    i = images[image]
+    if not 'type' in i and i['type'] == 'image':
+        raise InvallidType()
+
+    if type == 'doc':
+        return i
+    if type == 'thumb':
+        return images.get_attachment(i, 'thumbnail.jpg')
+    if type == 'image':
+        return images.get_attachment(i, 'image')
+    raise ValueError()

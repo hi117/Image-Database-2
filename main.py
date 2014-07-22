@@ -1,44 +1,24 @@
 from flask import *
-from PIL import Image
-from StringIO import StringIO
-import couchdb
+from jinja2 import *
 import json
 import urllib
-import tempfile
-import imagehash
-import subprocess
 import re
-import numpy
+import imagedb
+import config
 
 app = Flask(__name__)
 app.debug = True
 
-couch = couchdb.Server('http://127.0.0.1:5984')
-images = couch['imagedb']
-
-thumbSize = (128, 128)
-exifIgnore = [
-        "SourceFile",
-        "ExifToolVersion",
-        "FileName",
-        "Directory",
-        "FileSize",
-        "FileModifyDate",
-        "FileAccessDate",
-        "FileInodeChangeDate",
-        "FilePermissions",
-        "FileType",
-        "MIMEType",
-        ]
-
 @app.route('/')
 def index():
+    # TODO: switch to jinja
     if not 'offset' in request.args:
         return redirect('?offset=0')
     return send_from_directory('./static/', 'index.html')
 
 @app.route('/list')
 def list():
+    # TODO: switch to jinja and use imagedb list
     def all(gen, offset, hidden):
         h = hide(gen, hidden)
         n = 0
@@ -75,28 +55,11 @@ def list():
 
 @app.route('/image/<image>')
 def showImage(image):
-    if image in images:
-        attachment = images[image]['name']
-        mime = images[image]['_attachments'][attachment]['content_type']
-        for i in range(3):
-            try:
-                img = images.get_attachment(image, attachment).read()
-                break
-            except:
-                pass
-        return Response(img, mimetype=mime)
+    return Response(getImage(image, type='image'), mimetype=config.thumbMime)
 
 @app.route('/thumb/<image>')
 def showThumb(image):
-    if image in images:
-        for i in range(3):
-            try:
-                mime = images[image]['_attachments']['thumbnail.jpg']['content_type']
-                return Response(images.get_attachment(image, 'thumbnail.jpg').read(), mimetype=mime)
-            except:
-                pass
-        mime = images[image]['_attachments']['thumbnail.jpg']['content_type']
-        return Response(images.get_attachment(image, 'thumbnail.jpg').read(), mimetype=mime)
+    return Response(getImage(image, type='thumb'), mimetype=config.thumbMime)
 
 @app.route('/add', methods=['GET', 'POST'])
 def add():

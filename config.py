@@ -20,3 +20,5 @@ exifIgnore = [
         "FileType",
         "MIMEType",
         ]
+
+thumbMime = 'image/jpeg'
