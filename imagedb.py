@@ -216,12 +216,17 @@ def getTag(tag, id=False):
     else:
         if not tag in images:
             raise NoDocument()
-        return listTags(tag=tag, reverse=True)[tag]
+        doc = images[tag]
+        if doc['type'] != 'tag':
+            raise InvallidType()
+        return doc['name']
 
-def listTags(reverse=False, tag=None):
+def listTags(reverse=False, tag=None, hidden=False):
     '''
     Returns a list of tags in name indexed order.
     '''
+    if hidden:
+        return images.view('imagedb/hiddenTags')
     o = {}
     if tag:
         v = images.view('imagedb/tags', key=tag)
@@ -258,5 +263,46 @@ def getImage(image, type='doc'):
     if type == 'thumb':
         return images.get_attachment(i, 'thumbnail.jpg')
     if type == 'image':
-        return images.get_attachment(i, 'image')
+        return images.get_attachment(i, 'image'), i['_attachments']['image']['content_type']
     raise ValueError()
+
+def listImages():
+    '''
+    idk
+    '''
+    return images.iterview('imagedb/images', 100)
+
+def get(id):
+    '''
+    Returns a document from the image database.
+    '''
+    if id in images:
+        return images[id]
+    raise NoDocument()
+
+def isHidden(id):
+    '''
+    Returns True if doc is hidden, False otherwise.
+    If id is an image, checks all tags to see if any are marked hidden.
+    if id is a tag, checks the hidden attribute.
+    '''
+    if not id in images:
+        raise NoDocument()
+
+    doc = images[id]
+    if not 'type' in doc and (doc['type'] == 'image' or doc['type'] == 'tag'):
+        raise InvallidType()
+
+    # doc is a tag
+    if doc['type'] == 'tag':
+        return doc['hidden']
+
+    hidden = listTags(hidden=True)
+    if len(hidden) == 0:
+        return False
+    hidden = map(lambda a: a.id, hidden)
+    # doc is an image
+    for i in doc['tags']:
+        if i in hidden:
+            return True
+    return False

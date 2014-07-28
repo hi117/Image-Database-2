@@ -1,0 +1,21 @@
+<html>
+    <head>
+        <title>Hi117's Image Database</title>
+    </head>
+    <body>
+        {{ doc['id'] }}
+        <div id=image>
+            <a href="../image/{{ doc['id'] }}"><img src="../image/{{ doc['id'] }}"></a>
+        </div>
+        {% for i in doc['hashes'] %}
+        {{ i }}: {{ doc['hashes'][i] }}<br>
+        {% endfor %}
+        {% for i in doc['tags'] %}
+        <a href="{{ i }}">{{ getTag(i, True) }}</a>
+        {% endfor %}
+        <br>
+        {% for i in sorted(doc['exif'].keys()) %}
+        {{ i }}: {{ doc['exif'][i] }}<br>
+        {% endfor %}
+    </body>
+</html>

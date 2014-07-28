@@ -1,0 +1,12 @@
+<html>
+    <head>
+        <title>Hi117's Image Database</title>
+    </head>
+    <body>
+        {{ doc['name'] }}<br>
+        ID: {{ doc['id'] }}<br>
+        {% for i in doc['images'] %}
+        <a href="{{ i }}"><img src="../thumb/{{ i }}"></a>
+        {% endfor %}
+    </body>
+</html>

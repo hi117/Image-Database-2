@@ -1,5 +1,4 @@
 from flask import *
-from jinja2 import *
 import json
 import urllib
 import re
@@ -9,16 +8,17 @@ import config
 app = Flask(__name__)
 app.debug = True
 
+app.secret_key = 'testing'
+
 @app.route('/')
 def index():
-    # TODO: switch to jinja
     if not 'offset' in request.args:
         return redirect('?offset=0')
-    return send_from_directory('./static/', 'index.html')
+    return render_template('index.html', images=list(), offset=int(request.args['offset']), username=session['username'] if 'username' in session else None)
 
-@app.route('/list')
 def list():
-    # TODO: switch to jinja and use imagedb list
+    offset = int(request.args['offset'])
+    hidden = request.args['hidden'] if 'hidden' in request.args else []
     def all(gen, offset, hidden):
         h = hide(gen, hidden)
         n = 0
@@ -27,7 +27,7 @@ def list():
                 k = i.key
                 d = i.value
                 i = i.id
-                yield '<a href="image/' + i + '"><img src="thumb/' + i + '"></a>' + repr(n) + '\n'
+                yield [i, n]
                 n+=1
             elif n / 100 > offset:
                 break
@@ -35,96 +35,86 @@ def list():
                 n+=1
 
     def hide(gen, hidden):
-        htags = {}
-        for i in images.view('test/hiddenTags'):
-            htags[i.key] = i.value
+        htags = map(lambda a: a.id, imagedb.listTags(hidden=True))
         for i in gen:
             display = True
             for j in i.value['tags']:
-                if j in htags and htags[j] not in hidden:
+                if j in htags and j not in hidden:
                     display = False
                     break
             if display:
                 yield i
 
-    print [request.args]
-    if not 'hidden' in request.args:
-        return Response(all(images.iterview('imagedb/images', 100), int(request.args['offset']), []))
-    else:
-        return Response(all(images.iterview('imagedb/images', 100), int(request.args['offset']), map(lambda a: a.encode('utf8'), json.loads(request.args['hidden'].encode('utf8')))))
+    if not len(hidden):
+        return all(imagedb.listImages(), offset, [])
+    if 'username' in session:
+        return all(imagedb.listImages(), offset, map(lambda a: a.encode('utf8'), json.loads(hidden.encode('utf8'))))
+    abort(403)
 
 @app.route('/image/<image>')
 def showImage(image):
-    return Response(getImage(image, type='image'), mimetype=config.thumbMime)
+    if not 'username' in session and imagedb.isHidden(image):
+        abort(403)
+    i = imagedb.getImage(image, type='image')
+    return Response(i[0].read(), mimetype=i[1])
 
 @app.route('/thumb/<image>')
 def showThumb(image):
-    return Response(getImage(image, type='thumb'), mimetype=config.thumbMime)
+    if not 'username' in session and imagedb.isHidden(image):
+        abort(403)
+    return Response(imagedb.getImage(image, type='thumb'), mimetype=config.thumbMime)
 
 @app.route('/add', methods=['GET', 'POST'])
 def add():
     if request.method == 'GET':
-        return send_from_directory('./static/', 'add.html')
-    elif request.method == 'POST':
-        doc = {'type': 'image', 'links': []}
-        # grab all the tags
-        tags = {}
-        for i in images.view('test/tags'):
-            tags[i.key] = i.id
-        imTags = []
-        for i in json.loads(request.form['tags']):
-            if i in tags:
-                imTags.append(tags[i])
-            else:
-                # new tag, need to generate it
-                pass
-        doc['tags'] = imTags
-        # prepare image
-        im = request.files['image']
-        doc['name'] = im.filename
-        im = im.read()
-        imp = Image.open(StringIO(im))
-        # calculate image hash
-        hash = imagehash.phash(imp)
-        doc['hash'] = str(hash)
-        hashes = images.view('test/hashes')
-        for i in hashes:
-            if hashToImagehash(i.key) - hash <= 3:
-                print i.id
-        # generate image thumbnail
-        imp.thumbnail((128,128))
-        thumb = StringIO()
-        imp.convert('RGB').save(thumb, "JPEG")
-        # get the exif data and mime
-        with tempfile.NamedTemporaryFile() as f:
-            f.write(im)
-            f.flush()
-            exif = json.loads(subprocess.check_output(['exiftool', '-j', f.name]))[0]
-            for i in exifIgnore:
-                exif.pop(i)
-            mime = subprocess.check_output(['file', '--mime-type', f.name]).split(' ')[1]
-            doc['exif'] = exif
-        print doc
+        return render_template('add.html')
+    else:
+        print request
 
-def hashToImagehash(h):
-    a = []
-    for i in re.findall('..', h):
-        b = []
-        for j in range(8):
-            b.append(bool(int('0x' + i, 16) & 2**j))
-        a.append(b)
-    return imagehash.ImageHash(numpy.array(a, dtype=bool))
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'GET':
+        return render_template('login.html')
+    else:
+        if not 'username' in request.form or not 'password' in request.form:
+            abort(401)
+        if checkLogin(request.form['username'], request.form['password']):
+            session['username'] = request.form['username']
+            if 'redirect' in session:
+                return redirect(session.pop('redirect'))
+            return redirect(url_for('index'))
+        else:
+            flash('Login failed!')
+            return redirect(url_for('login'))
 
-@app.route('/js/<path:path>')
-@app.route('/css/<path:path>')
-@app.route('/static/<path:path>')
-def sStatic(path):
-    return send_from_directory('./static/' + str(request.url_rule).split('/')[1], path)
+@app.route('/logout')
+def logout():
+    session.pop('username', 0)
+    return redirect(url_for('index'))
 
-@app.route('/search/')
-def sSearch():
-    return send_from_directory('./static/', 'search.html')
+@app.route('/get/<id>')
+def get(id):
+    try:
+        doc = imagedb.get(id)
+    except imagedb.NoDocument:
+        abort(404)
+    if not 'type' in doc:
+        abort(404)
+    if imagedb.isHidden(id) and not 'username' in session:
+        abort(403)
+    if doc['type'] == 'image':
+        return render_template('image.html', doc=doc, getTag=imagedb.getTag, sorted=sorted)
+    if doc['type'] == 'tag':
+        return render_template('tag.html', doc=doc)
+    abort(404)
 
-@app.route('/untagged/')
-def untagged():
-    return send_from_directory('./static/', 'untagged.html')
+@app.errorhandler(404)
+def notFound(e):
+    return render_template('404.html')
+
+@app.errorhandler(403)
+def denied(e):
+    return render_template('403.html', login=url_for('login'))
+
+def checkLogin(username, password):
+    return True

@@ -20,12 +20,12 @@ print tags
 for i in tags:
     print imagedb.getTag(i)
 
-print 'Testing removing images'
-for i in ids:
-    print i
-    imagedb.removeImage(i)
+#print 'Testing removing images'
+#for i in ids:
+#    print i
+#    imagedb.removeImage(i)
 
-print 'Testing removing tags'
-for i in tags:
-    print i
-    imagedb.removeTag(i)
+#print 'Testing removing tags'
+#for i in tags:
+#    print i
+#    imagedb.removeTag(i)

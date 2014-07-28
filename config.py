@@ -1,7 +1,7 @@
 import couchdb
 
 couch = couchdb.Server('http://127.0.0.1:5984')
-images = couch['imagedbtest']
+images = couch['imagedb']
 
 thumbsize = (128, 128)
 
