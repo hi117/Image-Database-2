@@ -1,5 +1,6 @@
 from PIL import Image
 from StringIO import StringIO
+import imagedb.links
 import imagehash
 import json
 import subprocess
@@ -65,16 +66,22 @@ def checkPhash(hash):
             out.append(i.id)
     return out
 
-def addImage(image, tags=[], links=[]):
+def mDelete(id):
+    '''
+    Marks an image for cleanup and deletion.
+    '''
+    if not id in images:
+        raise NoDocument()
+
+    doc = images[id]
+    doc['delete'] = True
+    images.save(doc)
+
+def addImage(image):
     '''
     Adds an image.
     '''
-    doc = {'type': 'image', 'tags': []}
-    # An image must have tags, either generated from links or provided
-    if len(links) == 0:
-        tags, doc['links'] = genTagsFromLinks(tags, links)
-    if len(tags) == 0:
-        raise NoTags()
+    doc = {'type': 'image', 'tags': [], 'links': []}
 
     # Generate the PIL image
     f = tempfile.NamedTemporaryFile()
@@ -110,8 +117,6 @@ def addImage(image, tags=[], links=[]):
         doc['exif'].pop(i)
     doc['mime'] = subprocess.check_output(['file', '--mime-type', f.name]).split(' ')[1][:-1]
     id = images.save(doc)[0]
-    for i in tags:
-        addToTag(id, i)
     thumb = thumb.getvalue()
     images.put_attachment(images[id], thumb, filename = 'thumbnail.jpg', content_type =  config.thumbMime)
     images.put_attachment(images[id], image, filename='image', content_type=doc['mime'])
@@ -131,7 +136,13 @@ def removeImage(id):
     # Remove the image from all tags.
     for i in doc['tags']:
         removeFromTag(id, i)
+
+    # Remove the image from all links
+    for i in doc['tags']:
+        imagedb.links.removeFromLink(id, i)
+
     images.delete(images[doc.id])
+
 
 def addTag(tag, hidden=False):
     '''

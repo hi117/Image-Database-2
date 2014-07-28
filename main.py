@@ -3,6 +3,7 @@ import json
 import urllib
 import re
 import imagedb
+import imagedb.links
 import config
 
 app = Flask(__name__)
@@ -69,7 +70,23 @@ def add():
     if request.method == 'GET':
         return render_template('add.html')
     else:
-        print request
+        if 'url' in request.form:
+            # if they give a url, we use the url scraper
+            return processUrl(request.form['url'])
+
+        if not 'image' in request.files:
+            abort(403)
+        i = imagedb.addImage(request.files['image'].stream.read())
+        print i
+        args = {}
+        args['filename'] = request.files['image'].filename
+        args['mimetype'] = request.files['image'].mimetype
+        args['user'] = session['username'] if 'username' in session else 'Anonymous'
+        print imagedb.links.genLink('fileUpload', args, [i[0]])
+        if len(i[1]) != 0:
+            imagedb.mDelete(i[0])
+            return render_template('addCollision.html', id=i[0], collisions=i[1])
+        return render_template('postAdd.html', id=i[0], pcollosions=i[2])
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
