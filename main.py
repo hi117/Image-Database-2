@@ -5,6 +5,7 @@ import re
 import imagedb
 import imagedb.links
 import config
+import os.path
 
 app = Flask(__name__)
 app.debug = True
@@ -36,6 +37,8 @@ def list():
                 n+=1
 
     def hide(gen, hidden):
+        for i in imagedb.listTags(hidden=True):
+            print i
         htags = map(lambda a: a.id, imagedb.listTags(hidden=True))
         for i in gen:
             display = True
@@ -86,7 +89,7 @@ def add():
         if len(i[1]) != 0:
             imagedb.mDelete(i[0])
             return render_template('addCollision.html', id=i[0], collisions=i[1])
-        return render_template('postAdd.html', id=i[0], pcollosions=i[2])
+        return render_template('postAdd.html', id=i[0], pcollisions=i[2], len=len)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -120,13 +123,17 @@ def get(id):
     if imagedb.isHidden(id) and not 'username' in session:
         abort(403)
     if doc['type'] == 'image':
-        return render_template('image.html', doc=doc, getTag=imagedb.getTag, sorted=sorted)
+        return render_template('image.html', doc=doc, getTag=imagedb.getTag, sorted=sorted, username=session['username'] if 'username' in session else None)
     if doc['type'] == 'tag':
         return render_template('tag.html', doc=doc)
+    if doc['type'] == 'link' and doc['linktype'] == 'simmilar':
+        return render_template('simmilar.html', doc=doc)
     abort(404)
 
 @app.errorhandler(404)
 def notFound(e):
+    if os.path.isfile('static' + request.path):
+        return send_from_directory('static', request.path[1:])
     return render_template('404.html')
 
 @app.errorhandler(403)

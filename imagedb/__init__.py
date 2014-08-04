@@ -87,6 +87,13 @@ def addImage(image):
     f = tempfile.NamedTemporaryFile()
     f.write(image)
     f.flush()
+
+    # Get exif and mime
+    doc['exif'] = json.loads(subprocess.check_output(['exiftool', '-j', f.name]))[0]
+    for i in config.exifIgnore:
+        doc['exif'].pop(i)
+    doc['mime'] = subprocess.check_output(['file', '--mime-type', f.name]).split(' ')[1][:-1]
+
     f.seek(0)
     im = Image.open(f)
 
@@ -111,11 +118,7 @@ def addImage(image):
     thumb = StringIO()
     im.convert('RGB').save(thumb, "JPEG")
 
-    # Get exif and mime
-    doc['exif'] = json.loads(subprocess.check_output(['exiftool', '-j', f.name]))[0]
-    for i in config.exifIgnore:
-        doc['exif'].pop(i)
-    doc['mime'] = subprocess.check_output(['file', '--mime-type', f.name]).split(' ')[1][:-1]
+    # Save the result
     id = images.save(doc)[0]
     thumb = thumb.getvalue()
     images.put_attachment(images[id], thumb, filename = 'thumbnail.jpg', content_type =  config.thumbMime)
@@ -138,8 +141,8 @@ def removeImage(id):
         removeFromTag(id, i)
 
     # Remove the image from all links
-    for i in doc['tags']:
-        imagedb.links.removeFromLink(id, i)
+    #for i in doc['tags']:
+    #    imagedb.links.removeFromLink(id, i)
 
     images.delete(images[doc.id])
 
@@ -191,8 +194,10 @@ def addToTag(image, tag):
         tag = images[getTag(tag)]
 
     imaged = images[image]
-    imaged['tags'].append(tag['_id'])
-    tag['images'].append(image)
+    if not tag['_id'] in imaged['tags']:
+        imaged['tags'].append(tag['_id'])
+    if not 'image' in tag['images']:
+        tag['images'].append(image)
     images.update([tag, imaged])
 
 def removeFromTag(image, tag):

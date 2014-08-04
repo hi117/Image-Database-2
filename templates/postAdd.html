@@ -1,0 +1,14 @@
+<html>
+    <head>
+        <title>Hi117's Image Database</title>
+    </head>
+    <body>
+        Image ID: {{ doc['id'] }}
+        <div id=image>
+            <a href="image/{{ doc['id'] }}"><img src="image/{{ doc['id'] }}" style="max-width:100%;"></a>
+        </div>
+        {% if len(pcollisions) > 0 %}
+        <a href="get/{{ doc['id'] }}"><img src="thumb/{{ doc[id] }}"></a>
+        {% endif %}
+    </body>
+</html>

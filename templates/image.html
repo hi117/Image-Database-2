@@ -3,19 +3,26 @@
         <title>Hi117's Image Database</title>
     </head>
     <body>
-        {{ doc['id'] }}
+        Image ID: {{ doc['id'] }}
         <div id=image>
-            <a href="../image/{{ doc['id'] }}"><img src="../image/{{ doc['id'] }}"></a>
+            <a href="../image/{{ doc['id'] }}"><img src="../image/{{ doc['id'] }}" style="max-width:100%;"></a>
         </div>
-        {% for i in doc['hashes'] %}
-        {{ i }}: {{ doc['hashes'][i] }}<br>
-        {% endfor %}
+        Hashes:<br>
+        <code>
+            {% for i in doc['hashes'] %}
+            {{ i }}: {{ doc['hashes'][i] }}<br>
+            {% endfor %}
+        </code>
+        Tags: {% if username != None %}<a href="../edit/{{ doc['id'] }}">Edit</a>{% endif %}<br>
         {% for i in doc['tags'] %}
         <a href="{{ i }}">{{ getTag(i, True) }}</a>
         {% endfor %}
         <br>
-        {% for i in sorted(doc['exif'].keys()) %}
-        {{ i }}: {{ doc['exif'][i] }}<br>
-        {% endfor %}
+        Exif Data:<br>
+        <code>
+            {% for i in sorted(doc['exif'].keys()) %}
+            {{ i }}: {{ doc['exif'][i] }}<br>
+            {% endfor %}
+        </code>
     </body>
 </html>
