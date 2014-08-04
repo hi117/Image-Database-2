@@ -130,6 +130,10 @@ def get(id):
         return render_template('simmilar.html', doc=doc)
     abort(404)
 
+@app.route('/simmilar')
+def simmilar():
+    return render_template('listSimmilar.html', docs=imagedb.links.listSimmilarLinks())
+
 @app.errorhandler(404)
 def notFound(e):
     if os.path.isfile('static' + request.path):

@@ -1,0 +1,18 @@
+<html>
+    <head>
+        <title>Hi117's Image Database</title>
+    </head>
+    <body>
+        <table>
+            {% for i in docs %}
+            <tr>
+                {% for j in i['images'] %}
+                <td>
+                    <a href="get/{{ j }}"><img src="thumb/{{ j }}"></a>
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </table>
+    </body>
+</html>

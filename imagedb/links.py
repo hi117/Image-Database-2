@@ -23,6 +23,12 @@ def genLink(type, args, ids):
         return genLinkSimmilar(ids, args)
     raise InvallidType()
 
+def listSimmilarLinks():
+    '''
+    Returns a list of document ids for simmilar images.
+    '''
+    return map(lambda a: a.value, images.view('imagedb/simmilar'))
+
 def genLinkSimmilar(ids, args):
     '''
     Generates a simmilarity link.
