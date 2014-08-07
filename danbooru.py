@@ -4,24 +4,26 @@ import imagedb.links
 import requests
 import humanfriendly
 import time
+import sys
 import dateutil.parser
 from bs4 import BeautifulSoup as bs
 
-tags = ['suzumiya_haruhi_no_yuuutsu', 'little_busters!']
 s = requests.Session()
 tagurl = u'http://danbooru.donmai.us/posts?utf8=✓'
 posturl = 'http://danbooru.donmai.us/posts/'
 imgurl = 'http://danbooru.donmai.us'
 
-def downloadTag(tag):
+def downloadTag():
     '''
     Downloads a single tag.
     '''
+    tag = sys.argv[1]
+    offset = int(sys.argv[2]) if len(sys.argv) == 3 else 0
     a = bs(s.get(tagurl + '&tags=' + tag).text)
     # Get total pages
     total = int(str(a.find_all('menu')[-1].find_all('li')[-2].find('a').text))
-    for i in range(total):
-        downloadPage(tag, i+1)
+    for i in range(total-offset):
+        downloadPage(tag, i+1+offset)
 
 def downloadPage(tag, page):
     '''
@@ -34,7 +36,7 @@ def downloadPage(tag, page):
         if i.text == '':
             id = i.attrs['href'].split('/')[2].split('?')[0]
             if id in ids:
-                return
+                continue
             downloadImg(id)
 
 def replaceTag(tag):
@@ -144,7 +146,11 @@ def downloadImg(img):
     print imgurl + img
     image = s.get(imgurl + img).content
     
-    doc = imagedb.addImage(image)
+    try:
+        doc = imagedb.addImage(image)
+    except:
+        print 'failed!'
+        return
     print doc
     # if there is a collision, add the danbooru link to it and tag the image
     if len(doc[1]) != 0:
@@ -159,5 +165,4 @@ def downloadImg(img):
     for i in tags:
         imagedb.addToTag(id, i)
 
-for i in tags:
-    downloadTag(i)
+downloadTag()
